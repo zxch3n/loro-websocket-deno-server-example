@@ -1,6 +1,6 @@
-import { parse } from "https://deno.land/std@0.201.0/flags/mod.ts";
+import { parse } from "@std/flags";
 import { WebSocketServer } from "npm:ws@8.13.0";
-import { Awareness, Loro } from "npm:loro-crdt";
+import { Awareness, Loro } from "npm:loro-crdt@0.16.7";
 import { parseMessage, encodeServerAckMessage } from "./msg.ts";
 
 interface Room {
