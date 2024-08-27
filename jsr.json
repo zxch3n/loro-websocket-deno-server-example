@@ -1,5 +1,0 @@
-{
-    "name": "@zxc/loro-deno-serve",
-    "version": "0.0.4",
-    "exports": "./mod.ts"
-}
