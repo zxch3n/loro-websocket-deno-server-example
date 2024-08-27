@@ -66,7 +66,6 @@ export function connectRoom(
                             const newDoc = new Loro();
                             newDoc.import(message.payload);
                             const newVV = newDoc.version();
-                            newDoc.free();
                             if (newVV.compare(vv) == null) {
                                 // there are offline updates that haven't been uploaded to the server
                                 sendUpdate(
@@ -77,24 +76,19 @@ export function connectRoom(
                             }
 
                             isFirst = false;
-                            let curCounterEnd = vv.get(doc.peerIdStr) ?? 0;
                             sub = doc.subscribe((e: LoroEventBatch) => {
                                 if (e.by === "local") {
-                                    vv = doc.version();
-                                    const vvMap = vv.toJSON();
-                                    vvMap.set(
-                                        doc.peerIdStr,
-                                        curCounterEnd,
-                                    );
+                                    // TODO: PERF: this creates a lot of redundancy for the server side
+                                    // We can find a way to trim the updates
                                     sendUpdate(
                                         socket,
                                         "crdt",
                                         doc.exportFrom(
-                                            new VersionVector(vvMap),
+                                            vv,
                                         ),
                                     );
 
-                                    curCounterEnd = vv.get(doc.peerIdStr) ?? 0;
+                                    vv = doc.version();
                                 }
                             });
                         }

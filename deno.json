@@ -1,6 +1,6 @@
 {
   "name": "@zxc/loro-deno-serve",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "exports": "./mod.ts",
   "imports": {
     "@std/flags": "jsr:@std/flags@^0.224.0"
@@ -8,6 +8,7 @@
   "deploy": {
     "project": "be7989bf-21dc-465e-baf7-6fae6878845e",
     "exclude": [
+      "**/node_modules",
       "**/node_modules"
     ],
     "include": [],

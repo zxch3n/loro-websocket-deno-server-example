@@ -114,6 +114,7 @@ export function startServer(
             roomId,
             isNewRoom,
         }));
+        console.log(`New user joined ROOM[${roomId}] isNewRoom=${isNewRoom}`);
         sendInitDataOfRoom(currentRoom, ws);
 
         ws.addEventListener("message", (ev: MessageEvent<Uint8Array>) => {
@@ -122,6 +123,9 @@ export function startServer(
             if (message.type === "update") {
                 if (!currentRoom) return;
                 currentRoom.lastActive = Date.now();
+                console.log(
+                    `Room[${roomId}] Received Update Type[${message.updateType}] Size=${message.payload.length}`,
+                );
                 broadcastToRoom(currentRoom, ev.data, ws);
                 switch (message.updateType) {
                     case "ephemeral":

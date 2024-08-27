@@ -1,5 +1,6 @@
 import {
     assertEquals,
+    assertNotEquals,
     assertRejects,
     assertStrictEquals,
     assertThrows,
@@ -200,6 +201,13 @@ describe("WebSocket Server Tests", async () => {
             new Awareness(docA.peerIdStr),
         );
 
+        await new Promise((r) => setTimeout(r, 50));
+        assertEquals(docA.toJSON(), docB.toJSON());
+        docA.getText("text").insert(8, "Nihao");
+        docA.getText("text").insert(4, "ABC");
+        assertNotEquals(docA.toJSON(), docB.toJSON());
+        docA.commit();
+        docB.commit();
         await new Promise((r) => setTimeout(r, 50));
         assertEquals(docA.toJSON(), docB.toJSON());
         connA.close();
