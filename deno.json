@@ -9,6 +9,7 @@
     "project": "be7989bf-21dc-465e-baf7-6fae6878845e",
     "exclude": [
       "**/node_modules",
+      "**/node_modules",
       "**/node_modules"
     ],
     "include": [],

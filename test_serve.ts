@@ -2,8 +2,6 @@ import {
     assertEquals,
     assertNotEquals,
     assertRejects,
-    assertStrictEquals,
-    assertThrows,
 } from "jsr:@std/assert@1";
 import { startServer } from "./serve.ts";
 import {
@@ -14,7 +12,7 @@ import {
 } from "jsr:@std/testing@0.225.3/bdd";
 import { encodeUpdateMessage } from "./msg.ts";
 import { connectRoom } from "./client.ts";
-import { Awareness, Loro } from "npm:loro-crdt@0.16.9";
+import { Awareness, Loro } from "npm:loro-crdt@0.16.10";
 
 const TEST_PORT = 8089;
 const TEST_HOST = "127.0.0.1";
@@ -187,18 +185,19 @@ describe("WebSocket Server Tests", async () => {
         docA.commit();
         docB.getText("text").insert(0, "Hello!");
         docB.commit();
+        const aA = new Awareness(docA.peerIdStr);
+        const aB = new Awareness(docB.peerIdStr);
 
         const connA = await connectRoom(
             `http://${TEST_HOST}:${TEST_PORT}`,
             "TestRoom",
             docA,
-            new Awareness(docA.peerIdStr),
         );
         const connB = await connectRoom(
             `http://${TEST_HOST}:${TEST_PORT}`,
             "TestRoom",
             docB,
-            new Awareness(docA.peerIdStr),
+            aB,
         );
 
         await new Promise((r) => setTimeout(r, 50));
@@ -210,8 +209,52 @@ describe("WebSocket Server Tests", async () => {
         docB.commit();
         await new Promise((r) => setTimeout(r, 50));
         assertEquals(docA.toJSON(), docB.toJSON());
+        aA.destroy();
+        aB.destroy();
         connA.close();
         connB.close();
-        console.log("DONE!");
+    });
+
+    it("Sync Two Loro Docs' Awareness Correctly", async () => {
+        const authCallback = (_roomId: string, _authHeader: string | null) =>
+            Promise.resolve(true);
+        server = startServer({
+            port: TEST_PORT,
+            host: TEST_HOST,
+            authCallback,
+            roomTimeout: TEST_ROOM_TIMEOUT,
+        });
+
+        const docA = new Loro();
+        const docB = new Loro();
+        const aA = new Awareness(docA.peerIdStr);
+        const aB = new Awareness(docB.peerIdStr);
+
+        const connA = await connectRoom(
+            `http://${TEST_HOST}:${TEST_PORT}`,
+            "TestRoom",
+            docA,
+            aA,
+        );
+        const connB = await connectRoom(
+            `http://${TEST_HOST}:${TEST_PORT}`,
+            "TestRoom",
+            docB,
+            aB,
+        );
+
+        aA.setLocalState(100);
+        aB.setLocalState(200);
+        await new Promise((r) => setTimeout(r, 50));
+        assertEquals(aA.getAllStates(), aB.getAllStates());
+        aA.setLocalState(300);
+        assertNotEquals(aA.getAllStates(), aB.getAllStates());
+        await new Promise((r) => setTimeout(r, 50));
+        assertEquals(aA.getAllStates(), aB.getAllStates());
+        connA.close();
+        connB.close();
+        console.log("destroy");
+        aA.destroy();
+        aB.destroy();
     });
 });

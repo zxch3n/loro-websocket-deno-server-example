@@ -1,6 +1,6 @@
 import { parse } from "@std/flags";
 import { WebSocketServer } from "npm:ws@8.13.0";
-import { Awareness, Loro } from "npm:loro-crdt@0.16.9";
+import { Awareness, Loro } from "npm:loro-crdt@0.16.10";
 import { encodeServerAckMessage, parseMessage, sendUpdate } from "./msg.ts";
 
 interface Room {
@@ -9,8 +9,6 @@ interface Room {
     awareness: Awareness;
     crdtData: Uint8Array[];
 }
-
-const rooms = new Map<string, Room>();
 
 export type AuthCallback = (
     roomId: string,
@@ -27,11 +25,14 @@ export type ServerConfig = {
     onCompaction?: OnCompaction | null;
 };
 
+const rooms = new Map<string, Room>();
+
 function createRoom(roomId: string): Room {
+    const a = new Awareness("100");
     const room: Room = {
         participants: new Map(),
         lastActive: Date.now(),
-        awareness: new Awareness("100"),
+        awareness: a,
         crdtData: [],
     };
     rooms.set(roomId, room);
@@ -63,6 +64,7 @@ async function cleanupRooms(
             rooms.delete(roomId);
         } else if (room.crdtData.length > 16) {
             try {
+                console.info(`Compacting Room[${roomId}]`);
                 const data = room.crdtData;
                 const doc = new Loro();
                 doc.importUpdateBatch(data);
@@ -70,6 +72,7 @@ async function cleanupRooms(
                 onCompaction?.(roomId, room.crdtData[0]);
                 // avoid blocking for too long
                 await new Promise((r) => setTimeout(r, 16));
+                console.info(`Compacting Room[${roomId}] Done`);
             } catch (e) {
                 console.error(e);
             }
@@ -124,7 +127,7 @@ export function startServer(
                 if (!currentRoom) return;
                 currentRoom.lastActive = Date.now();
                 console.log(
-                    `Room[${roomId}] Received Update Type[${message.updateType}] Size=${message.payload.length}`,
+                    `Room[${roomId}] Received Update Type[${message.updateType}] Size=${message.payload.length} TotalLength=${currentRoom.crdtData.length}`,
                 );
                 broadcastToRoom(currentRoom, ev.data, ws);
                 switch (message.updateType) {
@@ -185,6 +188,10 @@ export function startServer(
     }, Math.min(roomTimeout, compactionInterval));
     server.finished.then(() => {
         clearInterval(timer);
+        rooms.forEach((x) => {
+            x.awareness.destroy();
+        });
+        rooms.clear();
     });
     return server;
 }
