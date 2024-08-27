@@ -7,7 +7,10 @@
       "jsr:@std/flags@^0.224.0": "jsr:@std/flags@0.224.0",
       "jsr:@std/internal@^1.0.2": "jsr:@std/internal@1.0.2",
       "jsr:@std/testing@0.225.3": "jsr:@std/testing@0.225.3",
-      "npm:loro-crdt@0.16.7": "npm:loro-crdt@0.16.7",
+      "npm:loro-crdt": "npm:loro-crdt@0.16.9",
+      "npm:loro-crdt@0.16.8": "npm:loro-crdt@0.16.8",
+      "npm:loro-crdt@0.16.9": "npm:loro-crdt@0.16.9",
+      "npm:loro-wasm@0.16.9": "npm:loro-wasm@0.16.9",
       "npm:ws@8.13.0": "npm:ws@8.13.0"
     },
     "jsr": {
@@ -34,14 +37,24 @@
       }
     },
     "npm": {
-      "loro-crdt@0.16.7": {
-        "integrity": "sha512-jzzCIy2JJiFX7E9tyxd40xNYu4L8ZVdXVIc/rtuI77hyTdmF5Q4XlEo4aI8p2qiuNXyo1S05VoYTb+N1TJLy5g==",
+      "loro-crdt@0.16.8": {
+        "integrity": "sha512-FrNyN+ZEuIZFU+ccQZKSLr8QzRKdMb4UjjcBgsaudlO4H4RzTzOR+Yy8ySMea09wy2xN5l0cIRtTxIwvwCO7pw==",
         "dependencies": {
-          "loro-wasm": "loro-wasm@0.16.7"
+          "loro-wasm": "loro-wasm@0.16.8"
         }
       },
-      "loro-wasm@0.16.7": {
-        "integrity": "sha512-JnobKK0ajCLcYIvL6dMx1aNb7/9YesBSHnYetKFHg9wNdBTznfoBou2sY51+XHwqaCeEgKHaY3zrjbBfQjF8Kg==",
+      "loro-crdt@0.16.9": {
+        "integrity": "sha512-ZdNM0wxhH7d2B09k3050Vr7a6Y4usmetria9duiPyHoDUZcku3tzus9h9ragvWXfzRrtEfHlJhDVgBYaSX23lA==",
+        "dependencies": {
+          "loro-wasm": "loro-wasm@0.16.9"
+        }
+      },
+      "loro-wasm@0.16.8": {
+        "integrity": "sha512-2DhBjCjC4A7xwr5NAjPaxD3Ok75N7aL+Arl8TIb0qr9h/3L/xNn5N/ECTdZ2F3LjVwaz0gPBDGTk3wKiCOTnNw==",
+        "dependencies": {}
+      },
+      "loro-wasm@0.16.9": {
+        "integrity": "sha512-MIIPZ5UqO4sKRgCSASL5SSbcp6ccw2sxvnG0w6rRnwAtgUgbxXf0DvZi8LqHte0cx3f7AMpA5JbcdxrtPxYFzg==",
         "dependencies": {}
       },
       "ws@8.13.0": {

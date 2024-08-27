@@ -12,6 +12,8 @@ import {
     it,
 } from "jsr:@std/testing@0.225.3/bdd";
 import { encodeUpdateMessage } from "./msg.ts";
+import { connectRoom } from "./client.ts";
+import { Awareness, Loro } from "npm:loro-crdt@0.16.9";
 
 const TEST_PORT = 8089;
 const TEST_HOST = "127.0.0.1";
@@ -166,5 +168,42 @@ describe("WebSocket Server Tests", async () => {
         } finally {
             client.close();
         }
+    });
+
+    it("Sync Two Loro Docs Correctly", async () => {
+        const authCallback = (_roomId: string, _authHeader: string | null) =>
+            Promise.resolve(true);
+        server = startServer({
+            port: TEST_PORT,
+            host: TEST_HOST,
+            authCallback,
+            roomTimeout: TEST_ROOM_TIMEOUT,
+        });
+
+        const docA = new Loro();
+        const docB = new Loro();
+        docA.getText("text").insert(0, "123");
+        docA.commit();
+        docB.getText("text").insert(0, "Hello!");
+        docB.commit();
+
+        const connA = await connectRoom(
+            `http://${TEST_HOST}:${TEST_PORT}`,
+            "TestRoom",
+            docA,
+            new Awareness(docA.peerIdStr),
+        );
+        const connB = await connectRoom(
+            `http://${TEST_HOST}:${TEST_PORT}`,
+            "TestRoom",
+            docB,
+            new Awareness(docA.peerIdStr),
+        );
+
+        await new Promise((r) => setTimeout(r, 50));
+        assertEquals(docA.toJSON(), docB.toJSON());
+        connA.close();
+        connB.close();
+        console.log("DONE!");
     });
 });

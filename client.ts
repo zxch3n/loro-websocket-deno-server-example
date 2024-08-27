@@ -1,8 +1,14 @@
-import { encodeUpdateMessage, parseMessage } from "./msg.ts";
-import type { Awareness, Loro } from "npm:loro-crdt@0.16.7";
+import { encodeUpdateMessage, parseMessage, sendUpdate } from "./msg.ts";
+import {
+    Awareness,
+    Loro,
+    LoroEvent,
+    LoroEventBatch,
+} from "npm:loro-crdt@0.16.9";
+import { VersionVector } from "npm:loro-wasm@0.16.9";
 
 type CustomWebSocket = {
-    new(url: string, protocols?: string | string[]): WebSocket;
+    new (url: string, protocols?: string | string[]): WebSocket;
 };
 
 export function connectRoom(
@@ -17,9 +23,9 @@ export function connectRoom(
     const WebSocketImpl = customWebSocket || WebSocket;
 
     const socket = new WebSocketImpl(url);
-
+    let sub: null | number = null;
+    let isFirst = true;
     socket.binaryType = "arraybuffer";
-
     return new Promise<WebSocket>((resolve, reject) => {
         socket.onopen = () => {
             console.log(`Connected to room: ${room}`);
@@ -31,10 +37,20 @@ export function connectRoom(
             reject(error);
         };
 
+        socket.onclose = () => {
+            if (sub) {
+                doc.unsubscribe(sub);
+            }
+        };
+
         socket.onmessage = (event) => {
             const message = parseMessage(new Uint8Array(event.data));
-            if (message.type === "ack" && message.roomId === room) {
+            if (message.type === "ack" && message.roomInfo.roomId === room) {
                 console.log(`Joined room: ${room}`);
+                if (message.roomInfo.isNewRoom) {
+                    const snapshot = doc.exportSnapshot();
+                    sendUpdate(socket, "crdt", snapshot);
+                }
             } else if (message.type === "update") {
                 // Handle different update types
                 switch (message.updateType) {
@@ -45,6 +61,44 @@ export function connectRoom(
                         awareness.apply(message.payload);
                         break;
                     case "crdt":
+                        if (isFirst) {
+                            let vv = doc.version();
+                            const newDoc = new Loro();
+                            newDoc.import(message.payload);
+                            const newVV = newDoc.version();
+                            newDoc.free();
+                            if (newVV.compare(vv) == null) {
+                                // there are offline updates that haven't been uploaded to the server
+                                sendUpdate(
+                                    socket,
+                                    "crdt",
+                                    doc.exportFrom(newVV),
+                                );
+                            }
+
+                            isFirst = false;
+                            let curCounterEnd = vv.get(doc.peerIdStr) ?? 0;
+                            sub = doc.subscribe((e: LoroEventBatch) => {
+                                if (e.by === "local") {
+                                    vv = doc.version();
+                                    const vvMap = vv.toJSON();
+                                    vvMap.set(
+                                        doc.peerIdStr,
+                                        curCounterEnd,
+                                    );
+                                    sendUpdate(
+                                        socket,
+                                        "crdt",
+                                        doc.exportFrom(
+                                            new VersionVector(vvMap),
+                                        ),
+                                    );
+
+                                    curCounterEnd = vv.get(doc.peerIdStr) ?? 0;
+                                }
+                            });
+                        }
+
                         doc.import(message.payload);
                         break;
                 }
@@ -55,14 +109,4 @@ export function connectRoom(
             console.log(`Disconnected from room: ${room}`);
         };
     });
-}
-
-// Helper function to send updates
-export function sendUpdate(
-    socket: WebSocket,
-    updateType: "ephemeral" | "awareness" | "crdt",
-    data: Uint8Array,
-) {
-    const message = encodeUpdateMessage(updateType, data);
-    socket.send(message);
 }

@@ -1,18 +1,21 @@
 import { parse } from "@std/flags";
 import { WebSocketServer } from "npm:ws@8.13.0";
-import { Awareness, Loro } from "npm:loro-crdt@0.16.7";
-import { parseMessage, encodeServerAckMessage } from "./msg.ts";
+import { Awareness, Loro } from "npm:loro-crdt@0.16.9";
+import { encodeServerAckMessage, parseMessage, sendUpdate } from "./msg.ts";
 
 interface Room {
     participants: Map<WebSocket, string>; // WebSocket to token mapping
     lastActive: number;
-    awareness: Awareness,
+    awareness: Awareness;
     crdtData: Uint8Array[];
 }
 
 const rooms = new Map<string, Room>();
 
-export type AuthCallback = (roomId: string, authHeader: string | null) => Promise<boolean>;
+export type AuthCallback = (
+    roomId: string,
+    authHeader: string | null,
+) => Promise<boolean>;
 export type OnCompaction = (roomId: string, data: Uint8Array) => Promise<void>;
 
 export type ServerConfig = {
@@ -35,10 +38,15 @@ function createRoom(roomId: string): Room {
     return room;
 }
 
-async function cleanupRooms(roomTimeout: number, onCompaction: OnCompaction | null) {
+async function cleanupRooms(
+    roomTimeout: number,
+    onCompaction: OnCompaction | null,
+) {
     const now = Date.now();
     for (const [roomId, room] of rooms.entries()) {
-        if (room.participants.size === 0 && now - room.lastActive > roomTimeout) {
+        if (
+            room.participants.size === 0 && now - room.lastActive > roomTimeout
+        ) {
             // Persist CRDT data here (e.g., to a database)
             if (onCompaction) {
                 try {
@@ -61,7 +69,7 @@ async function cleanupRooms(roomTimeout: number, onCompaction: OnCompaction | nu
                 room.crdtData = [doc.exportSnapshot()];
                 onCompaction?.(roomId, room.crdtData[0]);
                 // avoid blocking for too long
-                await new Promise(r => setTimeout(r, 16));
+                await new Promise((r) => setTimeout(r, 16));
             } catch (e) {
                 console.error(e);
             }
@@ -71,35 +79,41 @@ async function cleanupRooms(roomTimeout: number, onCompaction: OnCompaction | nu
 
 /**
  * Send the initial data for the given client
- * 
- * @param currentRoom 
- * @param ws 
+ *
+ * @param currentRoom
+ * @param ws
  */
 function sendInitDataOfRoom(currentRoom: Room, ws: WebSocket) {
     for (const d of currentRoom.crdtData) {
-        ws.send(d);
+        sendUpdate(ws, "crdt", d);
     }
     const bytes = currentRoom.awareness.encodeAll();
-    ws.send(new Uint8Array([1, 1, ...bytes]));
+    sendUpdate(ws, "ephemeral", bytes);
 }
 
-export function startServer(config: ServerConfig): Deno.HttpServer<Deno.NetAddr> {
+export function startServer(
+    config: ServerConfig,
+): Deno.HttpServer<Deno.NetAddr> {
     const {
         port,
         host = "0.0.0.0",
         authCallback = null,
         roomTimeout = 600000, // Default to 10 minutes
         compactionInterval = 300000, // Default to 5 minutes
-        onCompaction = null
+        onCompaction = null,
     } = config;
 
     const wss = new WebSocketServer({ noServer: true });
 
     wss.on("connection", (ws: WebSocket, roomId: string) => {
+        const isNewRoom = !rooms.get(roomId);
         const currentRoom: Room = rooms.get(roomId) || createRoom(roomId);
         currentRoom.participants.set(ws, "");
         currentRoom.lastActive = Date.now();
-        ws.send(encodeServerAckMessage(roomId));
+        ws.send(encodeServerAckMessage({
+            roomId,
+            isNewRoom,
+        }));
         sendInitDataOfRoom(currentRoom, ws);
 
         ws.addEventListener("message", (ev: MessageEvent<Uint8Array>) => {
@@ -158,16 +172,16 @@ export function startServer(config: ServerConfig): Deno.HttpServer<Deno.NetAddr>
         const { socket, response } = Deno.upgradeWebSocket(req);
         socket.addEventListener("open", () => {
             wss.emit("connection", socket, roomId);
-        })
+        });
         return response;
     });
 
     const timer = setInterval(() => {
-        cleanupRooms(roomTimeout, onCompaction)
+        cleanupRooms(roomTimeout, onCompaction);
     }, Math.min(roomTimeout, compactionInterval));
     server.finished.then(() => {
         clearInterval(timer);
-    })
+    });
     return server;
 }
 
@@ -193,7 +207,9 @@ if (import.meta.main) {
     }
 
     if (typeof roomTimeout !== "number" || isNaN(roomTimeout)) {
-        console.error("Invalid room timeout. Please provide a valid number in milliseconds.");
+        console.error(
+            "Invalid room timeout. Please provide a valid number in milliseconds.",
+        );
         Deno.exit(1);
     }
 
