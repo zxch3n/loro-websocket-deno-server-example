@@ -15,6 +15,15 @@ const rooms = new Map<string, Room>();
 export type AuthCallback = (roomId: string, authHeader: string | null) => Promise<boolean>;
 export type OnCompaction = (roomId: string, data: Uint8Array) => Promise<void>;
 
+export type ServerConfig = {
+    port: number;
+    host?: string;
+    authCallback?: AuthCallback | null;
+    roomTimeout?: number;
+    compactionInterval?: number;
+    onCompaction?: OnCompaction | null;
+};
+
 function createRoom(roomId: string): Room {
     const room: Room = {
         participants: new Map(),
@@ -74,14 +83,16 @@ function sendInitDataOfRoom(currentRoom: Room, ws: WebSocket) {
     ws.send(new Uint8Array([1, 1, ...bytes]));
 }
 
-export function startServer(
-    port: number,
-    host: string = "0.0.0.0",
-    authCallback: AuthCallback | null = null,
-    roomTimeout: number = 600000, // Default to 10 minutes
-    compactionInterval: number = 300000, // Default to 3 minutes
-    onCompaction: OnCompaction | null = null
-): Deno.HttpServer<Deno.NetAddr> {
+export function startServer(config: ServerConfig): Deno.HttpServer<Deno.NetAddr> {
+    const {
+        port,
+        host = "0.0.0.0",
+        authCallback = null,
+        roomTimeout = 600000, // Default to 10 minutes
+        compactionInterval = 300000, // Default to 5 minutes
+        onCompaction = null
+    } = config;
+
     const wss = new WebSocketServer({ noServer: true });
 
     wss.on("connection", (ws: WebSocket, roomId: string) => {
@@ -186,5 +197,5 @@ if (import.meta.main) {
         Deno.exit(1);
     }
 
-    startServer(port, host, null, roomTimeout);
+    startServer({ port, host, roomTimeout });
 }
