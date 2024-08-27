@@ -118,7 +118,9 @@ export function startServer(
             isNewRoom,
         }));
         console.log(`New user joined ROOM[${roomId}] isNewRoom=${isNewRoom}`);
-        sendInitDataOfRoom(currentRoom, ws);
+        if (!isNewRoom) {
+            sendInitDataOfRoom(currentRoom, ws);
+        }
 
         ws.addEventListener("message", (ev: MessageEvent<Uint8Array>) => {
             const message = parseMessage(new Uint8Array(ev.data));
